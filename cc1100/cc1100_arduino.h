@@ -41,7 +41,7 @@
 #define FIXED_LENGTH_LIMIT          255  //For packets with length>255, infinite packet length mode must be used
 #define FIFO_SIZE                    64  //Size of TX and RX FIFO buffers
 #define SIZE_BER                  0x7d00 //Tamaño del paquete que se envia para medir la BER
-#define SIZE_PRUEBA               0x3E80 //Tamaño para pruebas con arduino
+#define SIZE_PRUEBA               0x3E8 //Tamaño para pruebas con arduino
 
 /*---------------------------[CC1100 - R/W offsets]---------------------------*/
 #define WRITE_SINGLE_BYTE   0x00
