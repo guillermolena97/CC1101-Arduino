@@ -22,6 +22,7 @@ CC1100 cc1100;
 
 void setup() {
   Serial.begin(9600);Serial.println();
+  Serial.println("Iniciando set up");
 
   // init CC1101 RF-module and get My_address from EEPROM
   cc1100.begin(My_addr);                   //inits RF module with main default settings
@@ -39,6 +40,8 @@ void setup() {
 
   // init interrrupt function for available packet
   enableInterrupt(GDO2, rf_available_int, RISING);
+
+  Serial.println("Set up finalizado");
   
 }
 
@@ -55,9 +58,10 @@ void loop() {
         }  
       } 
     }
+    Serial.print("El numero de bits erroneos contados es:"); Serial.println(contador);
   }
   else{
-    printf("Esperando a que lleguen paquetes...  \n");
+    Serial.println("Esperando a que lleguen paquetes...");
   }
 
   delay(5000); //ms
@@ -68,16 +72,19 @@ void rf_available_int(void)
 {
   disableInterrupt(GDO2);
   
-  if(cc1100.packet_available() == TRUE){
+  if(cc1100.packet_available() == TRUE)
+  {
     if(cc1100.receive_frame(frame_buffer, &len, 0, 16) == TRUE)
-        cc1101_packet_available = TRUE; //set flag that a package is in RX buffer
-        
-        
-    }
-    else
     {
-        cc1101_packet_available = FALSE; //set flag that an package is corrupted
+      Serial.println("cc1101_packet_available = TRUE");
+      cc1101_packet_available = TRUE; 
     }
+  }
+  else
+  {
+    Serial.println("Else de rf_available_int");
+    cc1101_packet_available = FALSE; 
+  }
   
   enableInterrupt(GDO2, rf_available_int, RISING); 
 }
