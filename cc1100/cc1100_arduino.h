@@ -24,7 +24,7 @@
 /*----------------------[CC1100 - misc]---------------------------------------*/
 #define CRYSTAL_FREQUENCY         26000000
 #define CFG_REGISTER              0x2F  //47 registers
-#define FIFOBUFFER                0x42  //size of Fifo Buffer
+#define FIFOBUFFER                0x42  //size of Fifo Buffer 66???
 #define RSSI_OFFSET_868MHZ        0x4E  //dec = 74
 #define TX_RETRIES_MAX            0x05  //tx_retries_max
 #define ACK_TIMEOUT                200  //ACK timeout in ms
@@ -230,6 +230,17 @@ class CC1100
         uint8_t polling_while_bigger(uint8_t reg, uint8_t size);
         uint16_t get_frame_size(uint8_t* header, uint8_t data_len_loc, uint8_t data_len_size);
         uint8_t receive_frame(uint8_t* frame_buffer, uint16_t* len, uint8_t data_len_loc, uint8_t data_len_size);
+        
+        uint8_t tx_ber(uint16_t num_paquetes, uint8_t *txbuffer, uint8_t my_addr, uint8_t rx_addr, uint8_t length);
+        uint8_t send_ber_tc(uint8_t my_addr, uint8_t rx_addr, uint16_t num_paquetes);
+        
+        uint8_t rx_ber(uint8_t my_addr);
+        
+        uint8_t check_tc_ber(uint8_t rxbuffer[], uint8_t &pktlen, uint8_t &my_addr, uint8_t &sender, uint16_t &num_paquetes);
+        
+        uint8_t send_tc_ber(uint8_t my_addr, uint8_t tx_addr, uint16_t num_paquetes);
+        
+        void send_ber_packet(uint8_t pktlen);
 
 };
 //=======================[CC1100 special functions]=============================
