@@ -380,7 +380,7 @@ uint8_t CC1100::begin(volatile uint8_t &My_addr)
     set_debug_level(set_debug_level());   //set debug level of CC1101 outputs
 
     if(debug_level > 0){
-        Serial.println(F("Init CC1101..."));
+        Serial.println(F("Init CC1100..."));
     }
 
     spi_begin();                          //inits SPI Interface
@@ -637,7 +637,8 @@ void CC1100::wor_reset()
 //-------------------------------[end]------------------------------------------
 
 //-------------------------[tx_payload_burst]-----------------------------------
-uint8_t CC1100::tx_payload_burst(uint8_t my_addr, uint8_t rx_addr, uint8_t *txbuffer, uint8_t length)
+uint8_t CC1100::tx_payload_burst(uint8_t my_addr, uint8_t rx_addr,
+                              uint8_t *txbuffer, uint8_t length)
 {
     txbuffer[0] = length-1;
     txbuffer[1] = rx_addr;
@@ -686,8 +687,9 @@ uint8_t CC1100::rx_payload_burst(uint8_t rxbuffer[], uint8_t &pktlen)
 }
 //-------------------------------[end]------------------------------------------
 
-//---------------------------[send packet]--------------------------------------
-uint8_t CC1100::sent_packet(uint8_t my_addr, uint8_t rx_addr, uint8_t *txbuffer, uint8_t pktlen,  uint8_t tx_retries)
+//---------------------------[sent packet]--------------------------------------
+uint8_t CC1100::sent_packet(uint8_t my_addr, uint8_t rx_addr, uint8_t *txbuffer,
+                            uint8_t pktlen,  uint8_t tx_retries)
 {
     uint8_t pktlen_ack;                                         //default package len for ACK
     uint8_t rxbuffer[FIFOBUFFER];
@@ -706,7 +708,7 @@ uint8_t CC1100::sent_packet(uint8_t my_addr, uint8_t rx_addr, uint8_t *txbuffer,
         tx_payload_burst(my_addr, rx_addr, txbuffer, pktlen);   //loads the data in cc1100 buffer
         transmit();                                             //sents data over air
         receive();                                              //receive mode
-        
+
         if(rx_addr == BROADCAST_ADDRESS){                       //no wait acknowledge if sent to broadcast address or tx_retries = 0
             return TRUE;                                        //successful sent to BROADCAST_ADDRESS
         }
@@ -780,7 +782,8 @@ uint8_t CC1100::packet_available()
 //-------------------------------[end]------------------------------------------
 
 //------------------[check Payload for ACK or Data]-----------------------------
-uint8_t CC1100::get_payload(uint8_t rxbuffer[], uint8_t &pktlen, uint8_t &my_addr, uint8_t &sender, int8_t &rssi_dbm, uint8_t &lqi)
+uint8_t CC1100::get_payload(uint8_t rxbuffer[], uint8_t &pktlen, uint8_t &my_addr,
+                               uint8_t &sender, int8_t &rssi_dbm, uint8_t &lqi)
 {
     uint8_t crc;
 
@@ -888,11 +891,10 @@ uint8_t CC1100::wait_for_packet(uint16_t milliseconds)
             delay(1);                 //delay till system has data available
             if (packet_available())
             {
-                Serial.println(F("Packet received!"));
                 return TRUE;
             }
         }
-    Serial.println(F("no packet received!"));
+    //Serial.println(F("no packet received!"));
     return FALSE;
 }
 //-------------------------------[end]------------------------------------------
@@ -1286,7 +1288,7 @@ void CC1100::spi_end(void)
 uint8_t CC1100::spi_putc(uint8_t data)
 {
     SPDR = data;
-    while( !( SPSR & (1<<SPIF) ) );       // Warten bis Byte gesendet wurde
+  while( !( SPSR & (1<<SPIF) ) );       // Warten bis Byte gesendet wurde
 
     return SPDR;
 }
@@ -1410,471 +1412,111 @@ void CC1100::uart_puti(const int val)
 }/* uart_puti */
 //|================================= END ======================================|
 
-//|======================[ Tx Infinite Pkt len ]===============================|
-uint8_t CC1100::keep_transmiting_data(uint8_t* data, int len){
-	/* @brief This function CONTINUES the transmission of data, but DOES NOT start it. Controls the data flow from the MCU to C1101 once started. */
-	int len_transmited = 0;
-	uint8_t last_chunk = len%DATA_CHUNK_SIZE; //Tamaño que tendra el ultimo chunk a enviar <32 siempre
-	while(len_transmited <len-last_chunk){ //mientras el nº de by tx sea menor que el nº de by total sin el ultimo trozo: 
-        spi_write_burst(TXFIFO_BURST,&data[len_transmited],DATA_CHUNK_SIZE); //Mandar los DATA_CHUNK_SIZE*bytes al fifobuff tx
-        len_transmited +=DATA_CHUNK_SIZE; //llevar la cuenta de cuantos se llevan mandados 
-	}
-	if(last_chunk){
-        spi_write_burst(TXFIFO_BURST,&data[len_transmited],last_chunk);
-	}
-	return TRUE;
-}
-
-uint8_t CC1100::send_frame(uint8_t* frame, int len){ //mandar un paquete con longitud ilimitada
-    /*La razon por la que frame es un puntero de uint8 es pq asi se le puede pasar directamente la direccion de memoria de la posicion del vector donde esta el siguiente byte a enviar cuando hay q seguir enviando.
-    Se le envia junto con la longitud que queda por mandar aun para asi simplemente saber, que, desde ese punto, es mirar los restantes x posiciones despues de esa posicion de memoria
-    */
-    /*@brief Sends and unlimited length frame
-	 * TODO RSSI and LQI values are appended to the packet, what to do with them?*/
+//|=================================[ BER ]======================================|
+uint8_t check_tc_ber(uint8_t rxbuffe[], uint8_t &pktlen, uint8_t &my_addr, uint8_t &sender, uint16_t %num_paquetes)
+{
+    rx_fifo_erase(rxbuffer);
     
-    //Serial.print(F("  \n"));
-    
-    sidle(); //Sets RF to idle state
-    //Serial.print(F(" Set RF to idle state (1st) \n"));
-    uint8_t pktctrl0 = spi_read_register(PKTCTRL0); //guardamos en pktctrl el valor del registro de PKTCTRL0
-	uint8_t frame_len = len%256; //guarda en esta variable el tamaño que tendra el ultimo chunk a enviar, el resto de la division del total entre el maximo posible
-	pktctrl0 = pktctrl0 & 0b11111100; //reset len mode (+info pag 74 cc1101 datasheet) 
-    /* 
-    Basicamente lo que hace es coger el byte entero de la configuracion del packet control y lo mantiene todo como esta salvo los ultimos dos bits (o primeros, segun como se mire) y los pone a 0 para que este en su modo predeterminado para luego operar con ello como se guste para por ejemplo pasarlo al modo de infinite pktlen haciendo un or 0x2
-    */
-    //Serial.print(F(" Set pktctrl0 to standart \n"));
-	int len_sent = 0; //contador de la longitud que se lleva enviada
-
-	//configure interruption, high to low when below threshold
-	uint8_t iocfg2 = 0x2;
-    spi_write_register(IOCFG2, iocfg2); // Maybe IOCFG2??????????????????????????????????????????
-
-    spi_write_strobe(SFTX); //flush TX
-
-	//set packet length (que sera la longitud del ultimo chunk del paquete realmente)
-    spi_write_register(PKTLEN, frame_len);
-
-	if(len>FIXED_LENGTH_LIMIT){ //Use infinite packet length mode
-		//Set len mode to infinit
-		pktctrl0 = pktctrl0 | 0x2; //operacion binaria de or para poner PKTCTRL0.LENGTH_CONFIG = 2 (ese 2 no es directamente 2 sino que es el equivalente a que los bits 0 y 1 del byte sean 10) (+info pag 74 cc1101 datasheet)
-        spi_write_register(PKTCTRL0, pktctrl0);
-        
-        Serial.print(F(" Set infinite packet length mode \n"));
-
-		//we need to fill the buffer before activating TX mode, or the chip will get into tx underflow state.
-        spi_write_burst(TXFIFO_BURST, frame, FIFO_SIZE); //fill the buffer completely
-        spi_write_strobe(STX); //Start transmision
-        
-        Serial.print(F(" Tx started \n"));
-		
-        len_sent +=FIFO_SIZE;
-
-		int times = (len-len_sent)/FIFO_SIZE-1; //-1 to assure at bytes left to send them in fixed length mode
-        //Numero de veces que habra que enviar lo que queda teniendo en cuenta que el buffer es de 64 bytes
-		//transmit (len - d - 255) bytes of data, where d are the number of bytes already sent
-		if(!keep_transmiting_data(&frame[len_sent], times*FIFO_SIZE)) return FALSE;
-		len_sent += times*FIFO_SIZE;
-
-		//transmit remaining bytes in fixed length mode.
-
-		//Set len mode to fixed
-		pktctrl0 = pktctrl0 & 0b11111100;
-        spi_write_register(PKTCTRL0, pktctrl0);
-        
-        Serial.print(F(" Fixed length mode \n"));
-
-		if(!keep_transmiting_data(&frame[len_sent], len-len_sent)) return FALSE;
-
-	}else{
-		//Set len mode to fixed mode (default)
-        spi_write_register(PKTCTRL0, pktctrl0);
-        
-        Serial.print(F(" Default fixed length mode cause length<FIFO_SIZE \n"));
-
-		if(len>FIFO_SIZE){ //Use variable packet length mode
-            spi_write_burst(TXFIFO_BURST, frame, FIFO_SIZE);
-            spi_write_strobe(STX);
-			len_sent+=FIFO_SIZE;
-			if(!keep_transmiting_data(&frame[len_sent], len-len_sent)) return FALSE;
-		}else{
-            spi_write_burst(TXFIFO_BURST, frame, len);
-            spi_write_strobe(STX);
-		}
-	}
-
-	//Serial.print(F("FRAME SENT\n\r"));
-    return TRUE;
-}
-//|============================[ END ]=========================================|
-
-//|======================[ Rx Infinite Pkt len ]===============================|
-uint8_t CC1100::keep_receiving_data(uint8_t* data, int len){
-	/*@brief This function CONTINUES the reception of data, but DOES NOT start it. Controls the data flow from the C1101 to MCU
-	 *TODO RSSI and LQI values are appended to the packet, what to do with them?
-	 */
-	int len_received = 0;
-	uint8_t last_chunk = len%DATA_CHUNK_SIZE;
-    
-	while(len_received <len-last_chunk){
-        spi_read_burst(RXFIFO_BURST, &data[len_received], DATA_CHUNK_SIZE);
-        len_received +=DATA_CHUNK_SIZE;
-	}
-	if(last_chunk){
-		if(!polling_while_lower(RXBYTES, last_chunk)) return FALSE; //Polling because it won't trigger the threshold.
-        spi_read_burst(RXFIFO_BURST, &data[len_received], last_chunk);
-	}
-
-	return TRUE;
-}
-
-//PA Q SON LOS POLLING??????
-
-uint8_t CC1100::polling_while_lower(uint8_t reg, uint8_t size){
-    uint8_t t = spi_read_register(reg);
-	while(t<size){
-        t = spi_read_register(reg);
-		//printf("POLLING: %d\n\r", t);
-	}
-	return TRUE;
-}
-
-uint8_t CC1100::polling_while_bigger(uint8_t reg, uint8_t size){
-    uint8_t t = spi_read_register(reg);
-	while(t>size){
-        t = spi_read_register(reg);
-	}
-	return TRUE;
-}
-
-uint16_t CC1100::get_frame_size(uint8_t* header, uint8_t data_len_loc, uint8_t data_len_size){
-	/*
-	 * @Returns The length of the frame.
-	 */
-	uint16_t mask = 1;
-	for(int i = 1; i<data_len_size; i++){
-		mask= mask <<1;
-		mask+=1;
-	}
-	uint16_t frame_size;
-	frame_size = (header[data_len_loc] & 0xFF) | ((header[data_len_loc+1]<<8) & 0xFF00);
-	frame_size &=mask;
-	return frame_size;
-}
-
-uint8_t CC1100::receive_frame(uint8_t* frame_buffer, uint16_t* len, uint8_t data_len_loc, uint8_t data_len_size){
-	/* @Brief Receives a frame. When this function returns, the chip goes back to IDLE mode. In principle it should be possible to
-	 * maintain the RX mode to receive another packet if I understood correctly, but I haven't been able to achieve that.
-	 * @param frame_buffer Buffer to store the received data.
-	 * @param len The maximum len allowed (aka the buffer len). Used also to return the len of the received packet.
-	 * @param position of the data length field in the frame header. Must be within the first 64 bytes.
-	 * @param data_len_size Length of the data lengh field in bits. Used to mask 2 Bytes for a custom field size.
-	 * @Return CRC checksum ok?
-	 */
-    
-	//init some variables
-	uint16_t max_len = *len;
-	*len = 0;
-	uint16_t frame_len;
-	uint8_t data_field_size = sizeof(*len);
-
-	//configure interruption. Trigger when RX Buffer above threshold.
-    //spi_write_register(IOCFG2, 0x40); //???
-
-	//Set to infinite len mode
-    uint8_t pktctrl0 = spi_read_register(PKTCTRL0);
-	pktctrl0 = pktctrl0 & 0b11111100; //reset len mode
-	pktctrl0 = pktctrl0 | 0x2;
-    spi_write_register(PKTCTRL0, pktctrl0); 
-    
-    //Serial.print(F(" Set infinite packet length \n"));
-
-//???????????????????????????????????????????????????????????????????????????????????????????????
-	//check if receiving something
-	// uint8_t SFD = 0b00001000; //Sync Word OK? Addr (if enabled) OK? 0x08
-	// uint8_t status = 1; //rf_read_register(PKTSTATUS);
-//???????????????????????????????????????????????????????????????????????????????????????????????
-
-	//get frame size
-	if(!polling_while_lower(RXBYTES, data_len_loc+data_field_size)) return FALSE; //TODO reconfigure RX Threshold to detect the first bytes??
-    spi_read_burst(RXFIFO_BURST, frame_buffer, data_len_loc+data_field_size); //Cargar el rxbuffer con la data de la longitud del frame
-	frame_len = get_frame_size(frame_buffer, data_len_loc, data_len_size); // Se consigue la longitud del frame definitiva
-	*len +=data_len_loc+data_field_size;
-    
-    //Serial.print(F(" Frame lenght gotten \n"));
-	
-    if(frame_len > max_len) frame_len = max_len;
-	//Serial.print(F("FRAME LEN: %d\n\r", frame_len));
-
-	uint16_t remaining_len = frame_len-*len;
-	//set packet length
-    spi_write_register(PKTLEN, (frame_len)%256);
-    
-    //Serial.print(F(" Packet length set \n"));
-
-	if(remaining_len>FIXED_LENGTH_LIMIT){
-		int times = (remaining_len)/FIFO_SIZE;
-		if(!keep_receiving_data(&frame_buffer[*len], times*FIFO_SIZE)) return FALSE;
-		*len += times*FIFO_SIZE;
-
-		//set packet length to fixed
-		pktctrl0 = pktctrl0 & 0b11111100;
-        spi_write_register(PKTCTRL0, pktctrl0);
-        
-        //Serial.print(F(" Set to fixed packet length \n"));
-
-		//receive remaining
-		remaining_len = frame_len-*len;
-		keep_receiving_data(&frame_buffer[*len], remaining_len);
-		*len+=remaining_len;
-
-	}else if(remaining_len>DATA_CHUNK_SIZE){
-		//set packet length to fixed
-		pktctrl0 = pktctrl0 & 0b11111100;
-        spi_write_register(PKTCTRL0, pktctrl0);
-        
-        //Serial.print(F(" Set to fixed packet length \n"));
-        
-		//receive remaining
-		if(!keep_receiving_data(&frame_buffer[*len], remaining_len)) return FALSE;
-		*len+=remaining_len;
-
-	}else{
-		//set packet length to fixed
-		pktctrl0 = pktctrl0 & 0b11111100;
-        spi_write_register(PKTCTRL0, pktctrl0);
-        
-        //Serial.print(F(" Set to fixed packet length \n"));
-
-		//TODO using polling to not reconfigure interrupt
-		if(!polling_while_lower(RXBYTES, remaining_len)) return FALSE;
-        spi_read_burst(RXFIFO_BURST, &frame_buffer[*len], remaining_len);
-		*len+=remaining_len;
-	}
-
-	return TRUE;
-}
-//|===============================[ END ]=======================================|
-
-//|======================[ BER TX]===============================|
-uint8_t CC1100::send_ber_tc(uint8_t my_addr, uint8_t rx_addr, uint16_t num_paquetes){
-    //recibe como parámetro el numero de paquetes que enviara para calcular la BER
-    //envia un paquete con contenido de indicacion de que es para el calculo de la BER, y el numero de paquetes
-    //Esperará x segundos a recibir un ACK del receptor que le indicara que está preparado para recibir
-    //la funcion devolvera TRUE si recibe el ACK, sino devuelve FALSE.
-    uint8_t txbuffer[FIFOBUFFER];
-    uint8_t length = 0x06;
-    uint8_t from_sender;
-    uint16_t ackWaitCounter = 0;
-    uint8_t pktlen_ack;                                         //default package len for ACK
-    uint8_t rxbuffer[FIFOBUFFER];
-    
-    //1º Prepara el paquete en si a enviar
-    txbuffer[0] = length-1; //ENVIAMOS LA LONGITUD A PARTIR DEL PRIMER BYTE
-    txbuffer[1] = rx_addr;
-    txbuffer[2] = my_addr;
-    txbuffer[3] = 0xFF;
-    txbuffer[4] = (num_paquetes>>8 & 0xFF);
-    txbuffer[5] = (num_paquetes & 0xFF);
-    
-    
-    tx_payload_burst(my_addr, rx_addr, txbuffer, length); //2º rellenamos el txbuffer
-    transmit(); //cambiamos a modo tx
-    receive(); //volvemos a modo rx
-    
-    //if(rx_addr == BROADCAST_ADDRESS){
-      //      return TRUE;
-        //}
-
-    //Ahora esperamos a que llegue un ACK
-    while (ackWaitCounter < ACK_TIMEOUT ){
-        if (packet_available() == TRUE)                     //if RF package received check package acknowge
-        {
-            from_sender = rx_addr;                          //the original message sender address
-            rx_fifo_erase(rxbuffer);                        //erase RX software buffer
-            rx_payload_burst(rxbuffer, pktlen_ack);         //reads package in buffer and gets pktlen_ack
-            check_acknowledge(rxbuffer, pktlen_ack, from_sender, my_addr); //check if received message is an acknowledge from client
-            return TRUE;                                    //package successfully sent
-        }
-        else{
-            ackWaitCounter++;                               //increment ACK wait counter
-            delay(10);                                       //delay to give receiver time
-        }
-    }
-    
-    return FALSE; 
-}
-
-uint8_t CC1100::tx_ber(uint16_t num_paquetes, uint8_t *txbuffer, uint8_t my_addr, uint8_t rx_addr, uint8_t length){
-    /*
-    uint8_t num_paquetes -> numero de paquetes que enviara para calcular la BER
-    uint8_t *tx_packet -> array con la payload del paquete pero sin la longitud ni las addrs
-    uint8_t my_addr -> mi direccion
-    uint8_t rx_addr -> direccion del receptor
-    uint8_t length -> longitud del paquete
-    */
-    
-    int paquetes_enviados = 1;
-    if (!send_ber_tc(my_addr, rx_addr, num_paquetes)){
-        Serial.println("El receptor no esta preparado para calcular la BER");
-        return FALSE;
-    }else{//proceder a enviar paquetes para la BER
-        
-        while(paquetes_enviados<=num_paquetes){
-            tx_payload_burst(my_addr, rx_addr, *txbuffer, length);
-            transmit();
-            receive();
-            if(debug_level > 0){
-                Serial.print(F("Packet "));Serial.print(paquetes_enviados);Serial.println(F(" sent"));
-            }
-            paquetes_enviados++;
-            delay(100);
-        } 
-        return TRUE;
-    }   
-}
-
-//|======================[ BER RX]===============================|
-uint8_t CC1100::rx_ber(uint8_t my_addr){
-    //primero tenemos que recibir el TC de empezar el calculo de la BER
-    uint8_t rxbuffer[FIFOBUFFER];
-    uint8_t continuar = FALSE;
-    uint8_t terminar = FALSE;
-    int contador_bits_erroneos = 0;
-    uint8_t pktlen;
-    uint8_t referencia = 0b01010101;
-    float ber;
-    uint8_t tx_addr;
-    uint16_t num_paquetes;
-    int contador_paquetes_recibidos = 0;
-    
-    do{
-        while(continuar == FALSE){
-            if (packet_available() == TRUE){
-                rx_fifo_erase(rxbuffer);
-                rx_payload_burst(rxbuffer, pktlen);
-                if(rxbuffer[3] == 0xFF && rxbuffer[1] == my_addr){
-                    num_paquetes = rxbuffer[4]<<8 | rxbuffer[5];
-                    tx_addr = rxbuffer[2];
-                    sent_acknowledge(my_addr, tx_addr);
-                    continuar = TRUE;
-                } //si el paquete es para ese rx y es el TC de la BER, continuamos
-            }
-        } //Bucle para esperar a recibir el TC
-        
-        if (packet_available() == TRUE){
-            contador_paquetes_recibidos++;
-            rx_fifo_erase(rxbuffer);
-            rx_payload_burst(rxbuffer, pktlen);
-            for(int i = 6; i<pktlen; i++){
-                for(int j=0; j<8; j++){
-                  if( ((rxbuffer[i]>>j ) & 0b00000001 ) != ((referencia>>j ) & 0b00000001 )){
-                    contador_bits_erroneos++;
-                  }  
-                } //loop for para comparar bit a bit
-            }//loop for para comparar bit a bit
-        }               
-    }while(contador_paquetes_recibidos<num_paquetes);
-    
-    ber = contador_bits_erroneos/1000000;
-    Serial.print("La ber calculada es: ");Serial.println(ber);
-
-    
-    return TRUE;
-    
-}
-
-uint8_t CC1100::check_tc_ber(uint8_t rxbuffer[], uint8_t &pktlen, uint8_t &my_addr, uint8_t &sender, uint16_t &num_paquetes){
-    /*
-    Funcion que comprueba si el paquete que a llegado es un TC para el calculo de la BER. Si es así, guarda el numero de paquetes que se enviaran para el calculo de la BER y envia un ACK de vuelta al tx.
-    */
-    
-    rx_fifo_erase(rxbuffer);                               //delete rx_fifo bufffer
-
-    if(rx_payload_burst(rxbuffer, pktlen) == FALSE)        //read package in buffer
+    if(rx_payload_burst(rxbuffer, pktlen) == FALSE)
     {
-        rx_fifo_erase(rxbuffer);                           //delete rx_fifo bufffer
-        return FALSE;                                    //exit
+        rx_fifo_erase(rxbuffer);
+        return FALSE;
     }
-    else{
-        my_addr = rxbuffer[1];                             //set receiver address to my_addr
+    else
+    {
+        my_addr =rxbuffer[1];
         
-        if(debug_level > 0){                           //debug output messages
-            if(rxbuffer[1] == BROADCAST_ADDRESS){       //if my receiver address is BROADCAST_ADDRESS
+        if(debug_level>0)
+        {
+            if(rxbuffer[1] == BROADCAST_ADDRESS)
+            {
                 Serial.println(F("BROADCAST message"));
             }
-            Serial.print(F("RX_FIFO:"));
-            for(uint8_t i = 0 ; i < pktlen + 1; i++){   //shows rx_buffer for debug
+            Serial.print(F("RX_FIFO: "));
+            for(uint8_t i = 0; i < pktlen + 1; i++)
+            {
                 uart_puthex_byte(rxbuffer[i]);
             }
             Serial.println();
         }
-
-        my_addr = rxbuffer[1];                         //set receiver address to my_addr
-        sender = rxbuffer[2];                          //set from_sender address
-        num_paquetes = (rxbuffer[6]<<8) | (rxbuffer[7]);
-
-        if(((rxbuffer[1] == my_addr) || (rxbuffer[1] == BROADCAST_ADDRESS)) && (rxbuffer[2] == sender) && (rxbuffer[3] == 'B') && (rxbuffer[4] == 'E') && (rxbuffer[5] == 'R')){// if BER send ack
-            sent_acknowledge(my_addr, sender);           //sending acknowledge to sender!
+        
+        my_addr = rxbuffer[1]; //????????????????????
+        sender = rxbuffer[2];
+        
+        if(((rxbuffer[1] == my_addr) || (rxbuffer[1] == BROADCAST_ADDRESS)) && (rxbuffer[2] == sender) && (rxbuffer[3] == 'B') && (rxbuffer[4] == 'E') && (rxbuffer[5] == 'R'))
+        {
+            num_paquetes = (rxbuffer[6]<<8) | (rxbuffer[7]);
+            sent_acknowledge(my_addr, sender);
             return TRUE;
         }
-        else{
+        else
+        {
             return FALSE;
         }
-
     }
 }
 
-uint8_t CC1100::send_tc_ber(uint8_t my_addr, uint8_t rx_addr, uint16_t num_paquetes){
-    uint16_t ackWaitCounter = 0;
-    uint8_t pktlen_ack; 
+uint8_t send_tc_ber(uint8_t my_addr, uint8_t tx_addr, uint16_t num_paquetes)
+{
+    uint16_t ackWaitcounter = 0;
+    uint8_t tx_retries_count  0;
+    uint8_t tx_retries = 20;
+    uint8_t pktlen_ack;
     uint8_t rxbuffer[FIFOBUFFER];
-    uint8_t pktlen = 0x08;                                      //complete Pktlen for ACK packet
-    uint8_t tx_buffer[0x06];                                    //tx buffer array init
-
-    tx_buffer[3] = 'B'; tx_buffer[4] = 'E'; tx_buffer[5] = 'R'; //fill buffer with BER Payload
+    uint8_t pktlen = 0x08;
+    uint8_t tx_buffer[0x08];
+    
+    tx_buffer[3] = 'B';    tx_buffer[4] = 'E';    tx_buffer[5] = 'R';
     
     tx_buffer[6] = (num_paquetes>>8 & 0xFF);
     tx_buffer[7] = (num_paquetes & 0xFF);
-
-    tx_payload_burst(my_addr, rx_addr, tx_buffer, pktlen);      //load payload to CC1100
-    transmit();                                                 //sent package over the air
-    receive();                                                  //set CC1100 in receive mode
-
-    if(debug_level > 0){                                        //debut output
-        Serial.println(F("BER TC sent!"));
-    }
     
-    //ahora hacemos que espere al ACK del receptor
-    while (ackWaitCounter < ACK_TIMEOUT )                   //wait for an acknowledge
+    do
     {
-        Serial.println(F("Esperando al Ack ..."));
-        if (packet_available() == TRUE)                     //if RF package received check package acknowge
+        tx_payload_burst(my_addr, rx_addr, tx_buffer, pktlen);
+        transmit();
+        receive();
+        
+        if(debug_level>0)
         {
-            rx_fifo_erase(rxbuffer);                        //erase RX software buffer
-            rx_payload_burst(rxbuffer, pktlen_ack);         //reads package in buffer
-            return check_acknowledge(rxbuffer, pktlen_ack, rx_addr, my_addr); //check if received message is an acknowledge from client
-            //return TRUE;                                    //package successfully sent
+            Serial.println(F("BER TC sent!"));
         }
-        else{
-            ackWaitCounter++;                               //increment ACK wait counter
-            delay(1);                                       //delay to give receiver time
+        
+        while(ackWaitCounter < ACK_TIMEOUT )
+        {
+            if(packet_avalible() == TRUE)
+            {
+                rx_fifo_erase(rxbuffer);
+                rx_payload_burst(rxbuffer, pktlen_ack);
+                return check_acknowledge(rxbuffer, pktlen_ack, rx_addr, my_addr);
+            }
+            else
+            {
+                ackWaitCounter = 0;
+                tx_retries_count++;
+            }
         }
-    }
+        
+    }while(tx_retries_count <= tx_retries);
+    
     return FALSE;
 }
 
-void CC1100::send_ber_packet(uint8_t Pktlen){ 
+void send_ber_packet(uint8_t pktlen)
+{
+    uint8_t tx_buffer[pktlen];
+    tx_buffer[0] = pktlen-1;
     
-    uint8_t tx_buffer[Pktlen];
-    tx_buffer[0] = Pktlen-1;
-    
-    for(int j=1; j<Pktlen; j++){
-        tx_buffer[j] = 0x55;
+    for(uint8_t i = 0; i < pktlen; i++)
+    {
+        tx_buffer[i] = 0x55;
     }
     
-    spi_write_burst(TXFIFO_BURST,tx_buffer,Pktlen); //metemos el paquete en el TXFIFO buffer
+    spi_write_burst(TXFIFO_BURST, tx_buffer, pktlen);
     transmit();
-    receive(); 
+    receive();
 }
+
+
 
 

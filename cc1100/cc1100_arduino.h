@@ -24,7 +24,7 @@
 /*----------------------[CC1100 - misc]---------------------------------------*/
 #define CRYSTAL_FREQUENCY         26000000
 #define CFG_REGISTER              0x2F  //47 registers
-#define FIFOBUFFER                0x42  //size of Fifo Buffer 66???
+#define FIFOBUFFER                0x42  //size of Fifo Buffer
 #define RSSI_OFFSET_868MHZ        0x4E  //dec = 74
 #define TX_RETRIES_MAX            0x05  //tx_retries_max
 #define ACK_TIMEOUT                200  //ACK timeout in ms
@@ -35,13 +35,8 @@
 #define CC1100_FREQ_868MHZ        0x03
 #define CC1100_FREQ_915MHZ        0x04
 //#define CC1100_FREQ_2430MHZ       0x05
-#define CC1100_TEMP_ADC_MV        3.225  //3.3V/1023 . mV pro digit
-#define CC1100_TEMP_CELS_CO        2.47  //Temperature coefficient 2.47mV per Grad Celsius
-#define DATA_CHUNK_SIZE              32  //Tamaño de chunk de datos para manejar el infinite pkt len
-#define FIXED_LENGTH_LIMIT          255  //For packets with length>255, infinite packet length mode must be used
-#define FIFO_SIZE                    64  //Size of TX and RX FIFO buffers
-#define SIZE_BER                  0x7d00 //Tamaño del paquete que se envia para medir la BER
-#define SIZE_PRUEBA               0x3E8 //Tamaño para pruebas con arduino
+#define CC1100_TEMP_ADC_MV        3.225 //3.3V/1023 . mV pro digit
+#define CC1100_TEMP_CELS_CO       2.47  //Temperature coefficient 2.47mV per Grad Celsius
 
 /*---------------------------[CC1100 - R/W offsets]---------------------------*/
 #define WRITE_SINGLE_BYTE   0x00
@@ -221,25 +216,9 @@ class CC1100
         void uart_puthex_nibble(const unsigned char b);
         void uart_puthex_byte(const unsigned char  b);
         void uart_puti(const int val);
-        
-        uint8_t keep_transmiting_data(uint8_t* data, int len);
-        uint8_t send_frame(uint8_t* frame, int len);
-        
-        uint8_t keep_receiving_data(uint8_t* data, int len);
-        uint8_t polling_while_lower(uint8_t reg, uint8_t size);
-        uint8_t polling_while_bigger(uint8_t reg, uint8_t size);
-        uint16_t get_frame_size(uint8_t* header, uint8_t data_len_loc, uint8_t data_len_size);
-        uint8_t receive_frame(uint8_t* frame_buffer, uint16_t* len, uint8_t data_len_loc, uint8_t data_len_size);
-        
-        uint8_t tx_ber(uint16_t num_paquetes, uint8_t *txbuffer, uint8_t my_addr, uint8_t rx_addr, uint8_t length);
-        uint8_t send_ber_tc(uint8_t my_addr, uint8_t rx_addr, uint16_t num_paquetes);
-        
-        uint8_t rx_ber(uint8_t my_addr);
-        
-        uint8_t check_tc_ber(uint8_t rxbuffer[], uint8_t &pktlen, uint8_t &my_addr, uint8_t &sender, uint16_t &num_paquetes);
-        
+
+        uint8_t check_tc_ber(uint8_t rxbuffe[], uint8_t &pktlen, uint8_t &my_addr, uint8_t &sender, uint16_t %num_paquetes);
         uint8_t send_tc_ber(uint8_t my_addr, uint8_t tx_addr, uint16_t num_paquetes);
-        
         void send_ber_packet(uint8_t pktlen);
 
 };
