@@ -311,11 +311,11 @@ static uint8_t cc1100_OOK_4_8_kb[] EEMEM = {
                     0x09,  // TEST0         Various Test Settings
                 };
 
-                           //Patable index: -30  -20- -15  -10   0    5    7    10 dBm
-static uint8_t patable_power_315[] EEMEM = {0x17,0x1D,0x26,0x69,0x51,0x86,0xCC,0xC3};
-static uint8_t patable_power_433[] EEMEM = {0x6C,0x1C,0x06,0x3A,0x51,0x85,0xC8,0xC0};
-static uint8_t patable_power_868[] EEMEM = {0x03,0x17,0x1D,0x26,0x50,0x86,0xCD,0xC0};
-static uint8_t patable_power_915[] EEMEM = {0x0B,0x1B,0x6D,0x67,0x50,0x85,0xC9,0xC1};
+                           //Patable index: -30  -20 -15  -10   0    5    7    10 dBm
+static uint8_t patable_power_315[] EEMEM = {0x12,0x0D,0x1C,0x34,0x51,0x85,0xCB,0xC2};
+static uint8_t patable_power_433[] EEMEM = {0x12,0x0E,0x1D,0x34,0x60,0x84,0xC8,0xC0};
+static uint8_t patable_power_868[] EEMEM = {0x03,0x0F,0x1E,0x27,0x50,0x81,0xCB,0xC2};
+static uint8_t patable_power_915[] EEMEM = {0x03,0x0E,0x1E,0x27,0x8E,0xCD,0xC7,0xC0};
 //static uint8_t patable_power_2430[] EEMEM = {0x44,0x84,0x46,0x55,0xC6,0x6E,0x9A,0xFE};
 
 //----------------------------------[END]---------------------------------------
@@ -689,7 +689,7 @@ uint8_t CC1100::rx_payload_burst(uint8_t rxbuffer[], uint8_t &pktlen)
 
 //---------------------------[sent packet]--------------------------------------
 uint8_t CC1100::sent_packet(uint8_t my_addr, uint8_t rx_addr, uint8_t *txbuffer,
-                            uint8_t pktlen,  uint8_t tx_retries)
+                            uint8_t pktlen,  uint8_t tx_retries, uint8_t ackFlag)
 {
     uint8_t pktlen_ack;                                         //default package len for ACK
     uint8_t rxbuffer[FIFOBUFFER];
@@ -702,8 +702,45 @@ uint8_t CC1100::sent_packet(uint8_t my_addr, uint8_t rx_addr, uint8_t *txbuffer,
         printf("ERROR: package size overflow\r\n");
         return FALSE;
     }
+    
+    if(ackFlag == TRUE)
+    {      
+        do                                                          //sent package out with retries
+        {
+            tx_payload_burst(my_addr, rx_addr, txbuffer, pktlen);   //loads the data in cc1100 buffer
+            transmit();                                             //sents data over air
+            receive();                                              //receive mode
 
-    do                                                          //sent package out with retries
+            if(rx_addr == BROADCAST_ADDRESS){                       //no wait acknowledge if sent to broadcast address or tx_retries = 0
+                return TRUE;                                        //successful sent to BROADCAST_ADDRESS
+            }
+
+            while (ackWaitCounter < ACK_TIMEOUT )                   //wait for an acknowledge
+            {
+                if (packet_available() == TRUE)                     //if RF package received check package acknowge
+                {
+                    from_sender = rx_addr;                          //the original message sender address
+                    rx_fifo_erase(rxbuffer);                        //erase RX software buffer
+                    rx_payload_burst(rxbuffer, pktlen_ack);         //reads package in buffer
+                    check_acknowledge(rxbuffer, pktlen_ack, from_sender, my_addr); //check if received message is an acknowledge from client
+                    return TRUE;                                    //package successfully sent
+                }
+                else{
+                    ackWaitCounter++;                               //increment ACK wait counter
+                    delay(1);                                       //delay to give receiver time
+                }
+            }
+
+            ackWaitCounter = 0;                                     //resets the ACK_Timeout
+            tx_retries_count++;                                     //increase tx retry counter
+
+            if(debug_level > 0){                                    //debug output messages
+                Serial.print(F(" #:"));
+                uart_puthex_byte(tx_retries_count-1);
+                Serial.println();
+            }
+        }while(tx_retries_count <= tx_retries);                     //while count of retries is reaches
+    }else
     {
         tx_payload_burst(my_addr, rx_addr, txbuffer, pktlen);   //loads the data in cc1100 buffer
         transmit();                                             //sents data over air
@@ -712,32 +749,9 @@ uint8_t CC1100::sent_packet(uint8_t my_addr, uint8_t rx_addr, uint8_t *txbuffer,
         if(rx_addr == BROADCAST_ADDRESS){                       //no wait acknowledge if sent to broadcast address or tx_retries = 0
             return TRUE;                                        //successful sent to BROADCAST_ADDRESS
         }
-
-        while (ackWaitCounter < ACK_TIMEOUT )                   //wait for an acknowledge
-        {
-            if (packet_available() == TRUE)                     //if RF package received check package acknowge
-            {
-                from_sender = rx_addr;                          //the original message sender address
-                rx_fifo_erase(rxbuffer);                        //erase RX software buffer
-                rx_payload_burst(rxbuffer, pktlen_ack);         //reads package in buffer
-                check_acknowledge(rxbuffer, pktlen_ack, from_sender, my_addr); //check if received message is an acknowledge from client
-                return TRUE;                                    //package successfully sent
-            }
-            else{
-                ackWaitCounter++;                               //increment ACK wait counter
-                delay(1);                                       //delay to give receiver time
-            }
-        }
-
-        ackWaitCounter = 0;                                     //resets the ACK_Timeout
-        tx_retries_count++;                                     //increase tx retry counter
-
-        if(debug_level > 0){                                    //debug output messages
-            Serial.print(F(" #:"));
-            uart_puthex_byte(tx_retries_count-1);
-            Serial.println();
-      }
-    }while(tx_retries_count <= tx_retries);                     //while count of retries is reaches
+        
+        return TRUE;
+    }
 
     return FALSE;                                               //sent failed. too many retries
 }
@@ -808,7 +822,7 @@ uint8_t CC1100::get_payload(uint8_t rxbuffer[], uint8_t &pktlen, uint8_t &my_add
         {
             rssi_dbm = rssi_convert(rxbuffer[pktlen + 1]); //converts receiver strength to dBm
             lqi = lqi_convert(rxbuffer[pktlen + 2]);       //get rf quialtiy indicator
-            crc = check_crc(lqi);                          //get packet CRC
+            crc = check_crc(rxbuffer[pktlen + 2]);                          //get packet CRC
 
             if(debug_level > 0){                           //debug output messages
                 if(rxbuffer[1] == BROADCAST_ADDRESS)       //if my receiver address is BROADCAST_ADDRESS
@@ -867,7 +881,7 @@ uint8_t CC1100::check_acknowledge(uint8_t *rxbuffer, uint8_t pktlen, uint8_t sen
             }
             rssi_dbm = rssi_convert(rxbuffer[pktlen + 1]);
             lqi = lqi_convert(rxbuffer[pktlen + 2]);
-            crc = check_crc(lqi);
+            crc = check_crc(rxbuffer[pktlen + 2]); //CAMBIADO POR MI, CREO Q ESTABA MAL
 
             if(debug_level > 0){
                 //Serial.println();
@@ -1413,9 +1427,11 @@ void CC1100::uart_puti(const int val)
 //|================================= END ======================================|
 
 //|=================================[ BER ]======================================|
-uint8_t check_tc_ber(uint8_t rxbuffe[], uint8_t &pktlen, uint8_t &my_addr, uint8_t &sender, uint16_t %num_paquetes)
+uint8_t CC1100::check_tc_ber(uint8_t rxbuffer[], uint8_t &pktlen, uint8_t my_addr, uint8_t sender, uint16_t &num_paquetes)
 {
     rx_fifo_erase(rxbuffer);
+    
+    Serial.println(F("Ha entrado en check tc ber"));
     
     if(rx_payload_burst(rxbuffer, pktlen) == FALSE)
     {
@@ -1423,9 +1439,7 @@ uint8_t check_tc_ber(uint8_t rxbuffe[], uint8_t &pktlen, uint8_t &my_addr, uint8
         return FALSE;
     }
     else
-    {
-        my_addr =rxbuffer[1];
-        
+    {        
         if(debug_level>0)
         {
             if(rxbuffer[1] == BROADCAST_ADDRESS)
@@ -1440,9 +1454,6 @@ uint8_t check_tc_ber(uint8_t rxbuffe[], uint8_t &pktlen, uint8_t &my_addr, uint8
             Serial.println();
         }
         
-        my_addr = rxbuffer[1]; //????????????????????
-        sender = rxbuffer[2];
-        
         if(((rxbuffer[1] == my_addr) || (rxbuffer[1] == BROADCAST_ADDRESS)) && (rxbuffer[2] == sender) && (rxbuffer[3] == 'B') && (rxbuffer[4] == 'E') && (rxbuffer[5] == 'R'))
         {
             num_paquetes = (rxbuffer[6]<<8) | (rxbuffer[7]);
@@ -1456,11 +1467,11 @@ uint8_t check_tc_ber(uint8_t rxbuffe[], uint8_t &pktlen, uint8_t &my_addr, uint8
     }
 }
 
-uint8_t send_tc_ber(uint8_t my_addr, uint8_t tx_addr, uint16_t num_paquetes)
+uint8_t CC1100::send_tc_ber(uint8_t my_addr, uint8_t rx_addr, uint16_t num_paquetes)
 {
-    uint16_t ackWaitcounter = 0;
-    uint8_t tx_retries_count  0;
-    uint8_t tx_retries = 20;
+    uint16_t ackWaitCounter = 0;
+    uint8_t tx_retries_count = 0;
+    uint8_t tx_retries = 40;
     uint8_t pktlen_ack;
     uint8_t rxbuffer[FIFOBUFFER];
     uint8_t pktlen = 0x08;
@@ -1477,32 +1488,33 @@ uint8_t send_tc_ber(uint8_t my_addr, uint8_t tx_addr, uint16_t num_paquetes)
         transmit();
         receive();
         
-        if(debug_level>0)
-        {
-            Serial.println(F("BER TC sent!"));
-        }
+        Serial.println(F("BER TC sent!"));
         
         while(ackWaitCounter < ACK_TIMEOUT )
         {
-            if(packet_avalible() == TRUE)
+            if(packet_available() == TRUE)
             {
                 rx_fifo_erase(rxbuffer);
                 rx_payload_burst(rxbuffer, pktlen_ack);
-                return check_acknowledge(rxbuffer, pktlen_ack, rx_addr, my_addr);
+                check_acknowledge(rxbuffer, pktlen_ack, rx_addr, my_addr);
+                return TRUE;
             }
             else
             {
-                ackWaitCounter = 0;
-                tx_retries_count++;
+                ackWaitCounter++;
+                delay(1);
             }
         }
+        
+        ackWaitCounter = 0;
+        tx_retries_count++;
         
     }while(tx_retries_count <= tx_retries);
     
     return FALSE;
 }
 
-void send_ber_packet(uint8_t pktlen)
+void CC1100::send_ber_packet(uint8_t pktlen)
 {
     uint8_t tx_buffer[pktlen];
     tx_buffer[0] = pktlen-1;

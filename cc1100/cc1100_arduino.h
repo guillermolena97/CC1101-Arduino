@@ -37,6 +37,7 @@
 //#define CC1100_FREQ_2430MHZ       0x05
 #define CC1100_TEMP_ADC_MV        3.225 //3.3V/1023 . mV pro digit
 #define CC1100_TEMP_CELS_CO       2.47  //Temperature coefficient 2.47mV per Grad Celsius
+#define PER_TIMEOUT               10000
 
 /*---------------------------[CC1100 - R/W offsets]---------------------------*/
 #define WRITE_SINGLE_BYTE   0x00
@@ -189,7 +190,7 @@ class CC1100
         void rx_fifo_erase(uint8_t *rxbuffer);
         void tx_fifo_erase(uint8_t *txbuffer);
 
-        uint8_t sent_packet(uint8_t my_addr, uint8_t rx_addr, uint8_t *txbuffer, uint8_t pktlen, uint8_t tx_retries);
+        uint8_t sent_packet(uint8_t my_addr, uint8_t rx_addr, uint8_t *txbuffer, uint8_t pktlen, uint8_t tx_retries, uint8_t ackFlag);
         void sent_acknowledge(uint8_t my_addr, uint8_t tx_addr);
 
         uint8_t check_acknowledge(uint8_t *rxbuffer, uint8_t pktlen, uint8_t sender, uint8_t my_addr);
@@ -217,8 +218,8 @@ class CC1100
         void uart_puthex_byte(const unsigned char  b);
         void uart_puti(const int val);
 
-        uint8_t check_tc_ber(uint8_t rxbuffe[], uint8_t &pktlen, uint8_t &my_addr, uint8_t &sender, uint16_t %num_paquetes);
-        uint8_t send_tc_ber(uint8_t my_addr, uint8_t tx_addr, uint16_t num_paquetes);
+        uint8_t check_tc_ber(uint8_t rxbuffer[], uint8_t &pktlen, uint8_t my_addr, uint8_t sender, uint16_t &num_paquetes);
+        uint8_t send_tc_ber(uint8_t my_addr, uint8_t rx_addr, uint16_t num_paquetes);
         void send_ber_packet(uint8_t pktlen);
 
 };
