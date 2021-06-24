@@ -42,14 +42,18 @@ void loop() {
   
     for(int i=0; i<sizeof(float); i++){
       temperatura[i] = Rx_fifo[i+3];
-      Serial.print(temperatura[i]);
+      //Serial.print(temperatura[i]);
     }
 
     Serial.println();
 
     String strT((char*) temperatura);
-
+    
+    Serial.println("****************************************");
     Serial.println("La temperatura recibida es: "+strT);
+    Serial.println("****************************************");
+
+    Serial.println();
     
     cc1101_packet_available = FALSE;
     }
@@ -58,7 +62,7 @@ void loop() {
 void rf_available_int(void) 
 {
   disableInterrupt(GDO2);
-  Serial.println("packet available");
+  //Serial.println("packet available");
 
   if(cc1100.packet_available() == TRUE)
   {
