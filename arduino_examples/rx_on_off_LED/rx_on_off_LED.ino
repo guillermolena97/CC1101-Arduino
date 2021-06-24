@@ -32,7 +32,7 @@ void setup() {
 
   enableInterrupt(GDO2, rf_available_int, RISING); 
   
-  Serial.println("CC1101 LED telemetry demo: ");   //welcome message
+  Serial.println("CC1101 LED telecomand demo: ");   //welcome message
 
   pinMode(ledPIN, OUTPUT);
   
@@ -43,9 +43,11 @@ void loop() {
     uint8_t contenido = Rx_fifo[3];
     if (contenido == 0xFF){
       digitalWrite(ledPIN , HIGH);
+      Serial.println("LED ON");
     }
     else if (contenido == 0x00){
       digitalWrite(ledPIN , LOW);
+      Serial.println("LED OFF");
     }
     cc1101_packet_available = FALSE;
   }
@@ -54,7 +56,7 @@ void loop() {
 void rf_available_int(void) 
 {
   disableInterrupt(GDO2);
-  Serial.println("packet available");
+  //Serial.println("packet available");
 
   if(cc1100.packet_available() == TRUE)
   {
