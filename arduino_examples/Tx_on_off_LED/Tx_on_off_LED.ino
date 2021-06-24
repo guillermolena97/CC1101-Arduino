@@ -33,7 +33,7 @@ void setup() {
 
   enableInterrupt(GDO2, rf_available_int, RISING);
   
-  Serial.println("CC1101 LED telemetry demo: ");   //welcome message
+  Serial.println("CC1101 LED telecomand demo: ");   //welcome message
   Serial.println("Escribir 1 para encender y 2 para apagar el led");
 }
 
@@ -46,11 +46,11 @@ void loop() {
   
   switch (comando){
     case 1:
-      Serial.println("Preparando paquete con el telecomando de encendido ...");
+      Serial.println("Transmitiendo paquete con el telecomando de encendido ...");
       Tx_fifo[3] = 0xFF;
 
       detachPinChangeInterrupt(GDO2);
-      cc1100.sent_packet(My_addr, Rx_addr, Tx_fifo, Pktlen, 40);
+      cc1100.sent_packet(My_addr, Rx_addr, Tx_fifo, Pktlen, 40, TRUE);
       attachPinChangeInterrupt(GDO2, rf_available_int, RISING);
 
       Serial.println("Telecomando enviado!");
@@ -58,11 +58,11 @@ void loop() {
       break;
       
     case 2:
-      Serial.println("Preparando paquete con el telecomando de apagado ...");
+      Serial.println("Transmitiendo paquete con el telecomando de apagado ...");
       Tx_fifo[3] = 0x00;
       
       detachPinChangeInterrupt(GDO2);
-      cc1100.sent_packet(My_addr, Rx_addr, Tx_fifo, Pktlen, 40);
+      cc1100.sent_packet(My_addr, Rx_addr, Tx_fifo, Pktlen, 40, TRUE);
       attachPinChangeInterrupt(GDO2, rf_available_int, RISING);
 
       Serial.println(F("Telecomando enviado!"));

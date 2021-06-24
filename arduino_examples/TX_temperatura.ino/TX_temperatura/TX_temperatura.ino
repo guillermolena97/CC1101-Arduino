@@ -34,7 +34,6 @@ CC1100 cc1100;
 
 void setup() {
   // put your setup code here, to run once:
-    // put your setup code here, to run once:
   Serial.begin(9600);Serial.println();
   
   // Comenzamos el sensor DHT
@@ -52,7 +51,7 @@ void setup() {
   
   cc1100.receive();                        //set to RECEIVE mode
 
-  enableInterrupt(GDO2, rf_available_int, RISING);
+  //enableInterrupt(GDO2, rf_available_int, RISING);
 
 }
 
@@ -83,37 +82,37 @@ void loop() {
 
   Pktlen = sizeof(float) + 3;
 
-  Serial.print("El mensaje a enviar es: ");
-  for(int i=0; i < sizeof(float); i++){
-    Serial.print(payload[i], HEX);
-  }
-  Serial.println();
-  for(int i=0; i < sizeof(float); i++){
-    Serial.print(payload[i]);
-  }
-  Serial.println();
- 
-  detachPinChangeInterrupt(GDO2);
-  cc1100.sent_packet(My_addr, Rx_addr, Tx_fifo, Pktlen, 40);
-  attachPinChangeInterrupt(GDO2, rf_available_int, RISING);  
+  //Serial.print("El mensaje a enviar es: ");
+  //for(int i=0; i < sizeof(float); i++){
+    //Serial.print(payload[i], HEX);
+  //}
+  //Serial.println();
+  //for(int i=0; i < sizeof(float); i++){
+    //Serial.print(payload[i]);
+  //}
+  //Serial.println();
+
+  //detachPinChangeInterrupt(GDO2);
+  cc1100.sent_packet(My_addr, Rx_addr, Tx_fifo, Pktlen, 40, TRUE);
+  //attachPinChangeInterrupt(GDO2, rf_available_int, RISING);  
   
   delay(5000);
 }
 
-void rf_available_int(void) 
-{
-  disableInterrupt(GDO2);
-  
-  if(cc1100.packet_available() == TRUE){
-    if(cc1100.get_payload(Rx_fifo, pktlen, rx_addr, sender, rssi_dbm, lqi) == TRUE) //stores the payload data to Rx_fifo
-    {
-        cc1101_packet_available = TRUE;                                //set flag that a package is in RX buffer
-    }
-    else
-    {
-        cc1101_packet_available = FALSE;                               //set flag that an package is corrupted
-    }
-  }
-  
-  enableInterrupt(GDO2, rf_available_int, RISING); 
-}
+//void rf_available_int(void) 
+//{
+//  disableInterrupt(GDO2);
+//  
+//  if(cc1100.packet_available() == TRUE){
+//    if(cc1100.get_payload(Rx_fifo, pktlen, rx_addr, sender, rssi_dbm, lqi) == TRUE) //stores the payload data to Rx_fifo
+//    {
+//        cc1101_packet_available = TRUE;                                //set flag that a package is in RX buffer
+//    }
+//    else
+//    {
+//        cc1101_packet_available = FALSE;                               //set flag that an package is corrupted
+//    }
+//  }
+//  
+//  enableInterrupt(GDO2, rf_available_int, RISING); 
+//}
